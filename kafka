@@ -1,0 +1,13 @@
+# Start what kafka needs to be started
+bin/zookeeper-server-start.sh config/zookeeper.properties 2>&1 > zookeeper.log &
+bin/kafka-server-start.sh     config/server.properties    2>&1 > kafkaserv.log &
+
+# Kreate a topic
+bin/kafka-topics.sh --create --zookeeper 192.168.43.105:2181 --replication-factor 1 --partitions 1 --topic mytopic
+bin/kafka-topics.sh --list   --zookeeper 192.168.43.105:2181
+
+# Kreate producer for testing purposes
+bin/kafka-console-producer.sh --broker-list 192.168.43.105:9092 --topic mytopic
+
+# Kreate consumer for testing purposes
+bin/kafka-console-consumer.sh --bootstrap-server 192.168.43.105:9092 --topic mytopic --from-beginning
