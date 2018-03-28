@@ -1,13 +1,37 @@
-# Start what kafka needs to be started
-bin/zookeeper-server-start.sh config/zookeeper.properties 2>&1 > zookeeper.log &
-bin/kafka-server-start.sh     config/server.properties    2>&1 > kafkaserv.log &
+package main
 
-# Kreate a topic
-bin/kafka-topics.sh --create --zookeeper 192.168.43.105:2181 --replication-factor 1 --partitions 1 --topic mytopic
-bin/kafka-topics.sh --list   --zookeeper 192.168.43.105:2181
+import (
+	"fmt"
 
-# Kreate producer for testing purposes
-bin/kafka-console-producer.sh --broker-list 192.168.43.105:9092 --topic mytopic
+	"github.com/Shopify/sarama"
+)
 
-# Kreate consumer for testing purposes
-bin/kafka-console-consumer.sh --bootstrap-server 192.168.43.105:9092 --topic mytopic --from-beginning
+var (
+	brokerList = []string{"192.168.43.105:9092"}
+	topic      = "mytopic"
+)
+
+func main() {
+	config := sarama.NewConfig()
+	config.Producer.RequiredAcks = sarama.WaitForAll
+	config.Producer.Retry.Max = 5
+	config.Producer.Return.Successes = true
+	producer, err := sarama.NewSyncProducer(brokerList, config)
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		if err := producer.Close(); err != nil {
+			panic(err)
+		}
+	}()
+	msg := &sarama.ProducerMessage{
+		Topic: topic,
+		Value: sarama.StringEncoder("ha ha ha qrwa :D"),
+	}
+	partition, offset, err := producer.SendMessage(msg)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Message is stored in topic(%s)/partition(%d)/offset(%d)\n", topic, partition, offset)
+}
