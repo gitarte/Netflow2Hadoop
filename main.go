@@ -17,22 +17,22 @@ func main() {
 	//	creating channel to pass netflow data betwean goroutines
 	chanOfFlows := make(chan NetFlowV5)
 
-	//	creating UDP socket that will accept netlow traffic
+	//	Bringing to life endless goroutine that accumulates netlows .
+	//	It collects about 128MB of data and afterwards it sends thsi chunk
+	//	into another goroutine that saves it into file
+	go accumulate(chanOfFlows)
+
+	//	creating UDP socket that will infinitely accept netlow traffic
 	ServerAddr, _ := net.ResolveUDPAddr("udp", host+":"+port)
 	ServerConn, _ := net.ListenUDP("udp", ServerAddr)
 	defer ServerConn.Close()
 	fmt.Printf("Socket listening on %s:%s\n", host, port)
-
-	//	This goroutine accumulates netlows till it collects about 128MB of data.
-	//	Afterwards it sends accumulated data into another goroutine that saves it into file
-	go accumulate(chanOfFlows)
-
 	for {
 		//	waiting for single transmission from netflow collector
 		buf := make([]byte, 4096)
 		n, _, _ := ServerConn.ReadFromUDP(buf)
 
-		//	handling recaived data in separate goroutine
+		//	decoding recaived data in separate goroutine
 		go decodeDatagrams(buf, n, chanOfFlows)
 	}
 }
@@ -73,7 +73,6 @@ func accumulate(channel chan NetFlowV5) {
 
 func save(flowsArray []NetFlowV5, fileCount int) {
 	//	create new file
-	fileCount++
 	f, _ := os.Create("./" + strconv.Itoa(fileCount) + "flow")
 	defer f.Close()
 
