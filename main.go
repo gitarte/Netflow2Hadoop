@@ -14,8 +14,8 @@ func main() {
 	port := os.Args[2] //	listen port
 	//dstf := os.Args[3] //	directory for result files
 
+	//	creating channel to pass netflow data betwean goroutines
 	chanOfFlows := make(chan NetFlowV5)
-	chanOfSlices := make(chan []NetFlowV5)
 
 	//	creating UDP socket that will accept netlow traffic
 	ServerAddr, _ := net.ResolveUDPAddr("udp", host+":"+port)
@@ -26,37 +26,36 @@ func main() {
 	//	This goroutine accumulates netlows till it collects 500000 of them.
 	//	Afterwards it sends accumulated data into another goroutine that saves it into file
 	go func(channel chan NetFlowV5) {
+		fileCount := 0
 		for {
-			var flowsArray [500000]NetFlowV5
+			//	prepare container for current data chunk
+			var flowsArray []NetFlowV5
+			fileCount++
 
+			//	accumulate data
 			i := 0
-			for i < 500000 {
-				flowsArray[i] = <-channel
+			for i < 50 {
+				//	reading data send to channel after decoding NetFlow data into struct
+				flowsArray = append(flowsArray, <-channel)
 				i++
 			}
 
-			chanOfSlices <- flowsArray[:]
+			//	This goroutine stores given data into file
+			go func(flowsArray []NetFlowV5, fileCount int) {
+				//	create new file
+				fileCount++
+				f, _ := os.Create("./" + strconv.Itoa(fileCount) + "flow")
+				defer f.Close()
+
+				//	feed file with JSON's
+				for _, flow := range flowsArray {
+					//	struct to json
+					b, _ := json.Marshal(&flow)
+					f.WriteString(string(b) + "\n")
+				}
+			}(flowsArray, fileCount)
 		}
 	}(chanOfFlows)
-
-	//	This goroutine stores given data into file
-	go func(channel chan []NetFlowV5) {
-		fileCount := 0
-		for {
-			//	create new file
-			fileCount++
-			flowsArray := <-channel
-			f, _ := os.Create("./" + strconv.Itoa(fileCount) + "flow")
-			defer f.Close()
-
-			//	feed file with JSON's
-			for _, flow := range flowsArray {
-				//	struct to json
-				b, _ := json.Marshal(&flow)
-				f.WriteString(string(b) + "\n")
-			}
-		}
-	}(chanOfSlices)
 
 	for {
 		//	waiting for single transmission from netflow collector
@@ -75,6 +74,7 @@ func main() {
 			}
 
 			//	sending decoded netflow transmission into accumulating goroutine
+			//	which is defined just abowe this infinite for loop
 			channel <- flow
 		}(buf, n, chanOfFlows)
 	}
