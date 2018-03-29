@@ -18,11 +18,17 @@ type config struct {
 var c config
 
 func main() {
+	defer RecoverAnyPanic("main")
+
 	//	Reading commandline arguments
-	c.host = os.Args[1]                   //	listen address
-	c.port = os.Args[2]                   //	listen port
-	c.chunk, _ = strconv.Atoi(os.Args[3]) //	the size of accumulator
-	c.dest = os.Args[4]                   //	destination directory
+	c.host = os.Args[1]                    //	listen address
+	c.port = os.Args[2]                    //	listen port
+	chunk, err := strconv.Atoi(os.Args[3]) //	the size of accumulator
+	if err != nil {
+		ExitOnError("main", err)
+	}
+	c.chunk = chunk
+	c.dest = os.Args[4] //	destination directory
 
 	//	Creating channel to pass netflow data betwean goroutines
 	chanOfFlows := make(chan NetFlowV5)
@@ -34,21 +40,34 @@ func main() {
 
 	//	Creating UDP socket that will infinitely accept netlow traffic
 	//	Each incomming message is handled in separate goroutine
-	ServerAddr, _ := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%s", c.host, c.port))
-	ServerConn, _ := net.ListenUDP("udp", ServerAddr)
+	ServerAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%s", c.host, c.port))
+	if err != nil {
+		ExitOnError("ResolveUDPAddr", err)
+	}
+
+	ServerConn, err := net.ListenUDP("udp", ServerAddr)
+	if err != nil {
+		ExitOnError("ServerConn", err)
+	}
+
 	defer ServerConn.Close()
 	fmt.Printf("Socket is listening on %s:%s\n", c.host, c.port)
 	for {
 		//	waiting for single transmission from netflow collector
 		buf := make([]byte, 4096)
-		n, _, _ := ServerConn.ReadFromUDP(buf)
-
+		n, _, err := ServerConn.ReadFromUDP(buf)
+		if err != nil {
+			LogOnError("ServerConn", err)
+			continue
+		}
 		//	decoding recaived data in separate goroutine
 		go decodeDatagrams(buf, n, chanOfFlows)
 	}
 }
 
 func decodeDatagrams(buf []byte, n int, channel chan NetFlowV5) {
+	defer RecoverAnyPanic("decodeDatagrams")
+
 	//	create new container for data
 	var flow NetFlowV5
 	//	Decode NetFlow v5 header
@@ -63,6 +82,8 @@ func decodeDatagrams(buf []byte, n int, channel chan NetFlowV5) {
 }
 
 func accumulate(channel chan NetFlowV5) {
+	defer RecoverAnyPanic("accumulate")
+
 	fileCount := 0
 	for {
 		//	prepare container for current data chunk
@@ -72,6 +93,10 @@ func accumulate(channel chan NetFlowV5) {
 		//	accumulate data
 		i := 0
 		for i < c.chunk {
+			if i%100 == 0 {
+				fmt.Printf("Accumulated %d flows in file %d\n", i, fileCount)
+			}
+
 			sliceOfFlows = append(sliceOfFlows, <-channel)
 			i++
 		}
@@ -82,6 +107,8 @@ func accumulate(channel chan NetFlowV5) {
 }
 
 func save(sliceOfFlows []NetFlowV5, fileCount int) {
+	defer RecoverAnyPanic("save")
+
 	//	create new file
 	f, _ := os.Create(fmt.Sprintf("%s/%s.flow", c.dest, strconv.Itoa(fileCount)))
 	defer f.Close()
