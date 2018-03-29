@@ -110,14 +110,21 @@ func save(sliceOfFlows []NetFlowV5, fileCount int) {
 	defer RecoverAnyPanic("save")
 
 	//	create new file
-	f, _ := os.Create(fmt.Sprintf("%s/%s.flow", c.dest, strconv.Itoa(fileCount)))
+	f, err := os.Create(fmt.Sprintf("%s/%s.flow", c.dest, strconv.Itoa(fileCount)))
+	if err != nil {
+		panic(err)
+	}
 	defer f.Close()
 
 	//	feed file with JSON array of decoded flows
 	f.WriteString("[")
 	for _, flow := range sliceOfFlows {
-		b, _ := json.Marshal(&flow)
-		f.WriteString(fmt.Sprintf("%s,", string(b)))
+		jSon, err := json.Marshal(&flow)
+		if err != nil {
+			LogOnError("ServerConn", err)
+			continue
+		}
+		f.WriteString(fmt.Sprintf("%s,", string(jSon)))
 	}
 	f.WriteString("{}]") //	dirty trick that makes JSON always valid
 }
