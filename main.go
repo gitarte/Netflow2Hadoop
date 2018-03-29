@@ -34,7 +34,7 @@ func main() {
 
 	//	Creating UDP socket that will infinitely accept netlow traffic
 	//	Each incomming message is handled in separate goroutine
-	ServerAddr, _ := net.ResolveUDPAddr("udp", c.host+":"+c.port)
+	ServerAddr, _ := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%s", c.host, c.port))
 	ServerConn, _ := net.ListenUDP("udp", ServerAddr)
 	defer ServerConn.Close()
 	fmt.Printf("Socket is listening on %s:%s\n", c.host, c.port)
@@ -83,14 +83,14 @@ func accumulate(channel chan NetFlowV5) {
 
 func save(sliceOfFlows []NetFlowV5, fileCount int) {
 	//	create new file
-	f, _ := os.Create(c.dest + "/" + strconv.Itoa(fileCount) + ".flow")
+	f, _ := os.Create(fmt.Sprintf("%s/%s.flow", c.dest, strconv.Itoa(fileCount)))
 	defer f.Close()
 
 	//	feed file with JSON array of decoded flows
 	f.WriteString("[")
 	for _, flow := range sliceOfFlows {
 		b, _ := json.Marshal(&flow)
-		f.WriteString(string(b) + ",")
+		f.WriteString(fmt.Sprintf("%s,", string(b)))
 	}
 	f.WriteString("{}]") //	dirty trick that makes JSON always valid
 }
