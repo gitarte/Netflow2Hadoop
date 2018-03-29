@@ -9,24 +9,25 @@ import (
 )
 
 func main() {
-	//	reading commandline arguments
+	//	Reading commandline arguments
 	host := os.Args[1] //	listen address
 	port := os.Args[2] //	listen port
 	//dstf := os.Args[3] //	directory for result files
 
-	//	creating channel to pass netflow data betwean goroutines
+	//	Creating channel to pass netflow data betwean goroutines
 	chanOfFlows := make(chan NetFlowV5)
 
-	//	Bringing to life endless goroutine that accumulates netlows .
-	//	It collects about 128MB of data and afterwards it sends thsi chunk
+	//	Bringing to life infinite goroutine that accumulates netlows.
+	//	It collects about 128MB of data and afterwards it sends this chunk
 	//	into another goroutine that saves it into file
 	go accumulate(chanOfFlows)
 
-	//	creating UDP socket that will infinitely accept netlow traffic
+	//	Creating UDP socket that will infinitely accept netlow traffic
+	//	Each incomming message is handled in separate goroutine
 	ServerAddr, _ := net.ResolveUDPAddr("udp", host+":"+port)
 	ServerConn, _ := net.ListenUDP("udp", ServerAddr)
 	defer ServerConn.Close()
-	fmt.Printf("Socket listening on %s:%s\n", host, port)
+	fmt.Printf("Socket is listening on %s:%s\n", host, port)
 	for {
 		//	waiting for single transmission from netflow collector
 		buf := make([]byte, 4096)
@@ -60,8 +61,7 @@ func accumulate(channel chan NetFlowV5) {
 
 		//	accumulate data
 		i := 0
-		for i < 50 {
-			//	reading data send to channel after decoding NetFlow data into struct
+		for i < 120000 {
 			flowsArray = append(flowsArray, <-channel)
 			i++
 		}
@@ -78,7 +78,6 @@ func save(flowsArray []NetFlowV5, fileCount int) {
 
 	//	feed file with JSON's
 	for _, flow := range flowsArray {
-		//	struct to json
 		b, _ := json.Marshal(&flow)
 		f.WriteString(string(b) + "\n")
 	}
