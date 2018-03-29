@@ -10,9 +10,10 @@ import (
 
 func main() {
 	//	Reading commandline arguments
-	host := os.Args[1] //	listen address
-	port := os.Args[2] //	listen port
-	//dstf := os.Args[3] //	directory for result files
+	host := os.Args[1]                   //	listen address
+	port := os.Args[2]                   //	listen port
+	chunk, _ := strconv.Atoi(os.Args[3]) //	the size of accumulator
+	dest := os.Args[4]                   //	destination directory
 
 	//	Creating channel to pass netflow data betwean goroutines
 	chanOfFlows := make(chan NetFlowV5)
@@ -20,7 +21,7 @@ func main() {
 	//	Bringing to life infinite goroutine that accumulates netlows.
 	//	It collects about 128MB of data and afterwards it sends this chunk
 	//	into another goroutine that saves it into file
-	go accumulate(chanOfFlows)
+	go accumulate(chanOfFlows, dest, chunk)
 
 	//	Creating UDP socket that will infinitely accept netlow traffic
 	//	Each incomming message is handled in separate goroutine
@@ -52,7 +53,7 @@ func decodeDatagrams(buf []byte, n int, channel chan NetFlowV5) {
 	channel <- flow
 }
 
-func accumulate(channel chan NetFlowV5) {
+func accumulate(channel chan NetFlowV5, dest string, chunk int) {
 	fileCount := 0
 	for {
 		//	prepare container for current data chunk
@@ -61,19 +62,19 @@ func accumulate(channel chan NetFlowV5) {
 
 		//	accumulate data
 		i := 0
-		for i < 120000 {
+		for i < chunk {
 			flowsArray = append(flowsArray, <-channel)
 			i++
 		}
 
 		//	This goroutine stores given data into file
-		go save(flowsArray, fileCount)
+		go save(flowsArray, dest, fileCount)
 	}
 }
 
-func save(flowsArray []NetFlowV5, fileCount int) {
+func save(flowsArray []NetFlowV5, dest string, fileCount int) {
 	//	create new file
-	f, _ := os.Create("./" + strconv.Itoa(fileCount) + "flow")
+	f, _ := os.Create(dest + "/" + strconv.Itoa(fileCount) + ".flow")
 	defer f.Close()
 
 	//	feed file with JSON's
