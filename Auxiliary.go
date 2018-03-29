@@ -38,5 +38,5 @@ func ExitOnError(where string, err error) {
 
 // LogOnError prints message and error if given
 func LogOnError(where string, err error) {
-	fmt.Fprintf(os.Stderr, "Error in %s: %v\n", where, err)
+	fmt.Printf("Error in %s: %v\n", where, err)
 }
