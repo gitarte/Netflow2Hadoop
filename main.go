@@ -13,7 +13,6 @@ type config struct {
 	port  string //	listen port
 	chunk int    //	the size of accumulator
 	dest  string //	destination directory
-
 }
 
 var c config
@@ -67,7 +66,7 @@ func accumulate(channel chan NetFlowV5) {
 	fileCount := 0
 	for {
 		//	prepare container for current data chunk
-		var sliceOfFlows []NetFlowV5
+		sliceOfFlows := make([]NetFlowV5, c.chunk)
 		fileCount++
 
 		//	accumulate data
