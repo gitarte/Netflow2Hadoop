@@ -96,8 +96,7 @@ func accumulate(channel chan NetFlowV5) {
 			if i%100 == 0 {
 				fmt.Printf("Accumulated %d flows in file %d\n", i, fileCount)
 			}
-
-			sliceOfFlows = append(sliceOfFlows, <-channel)
+			sliceOfFlows[i] = <-channel
 			i++
 		}
 
