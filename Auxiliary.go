@@ -6,6 +6,43 @@ import (
 	"time"
 )
 
+{
+	"host": "",
+	"port": "",
+	"chunkSize": "",
+	"dest": "",
+	"v5Header": {
+		"Version": true,
+		"Count": true,
+		"SysUptime": true,
+		"Timestamp": true,
+		"FlowSequence": true,
+		"EngineType": true,
+		"EngineID": true,
+		"SamplingInterval": true
+	},
+	"v5Record": {
+		"SrcAddr": true,
+		"DstAddr": true,
+		"NextHop": true,
+		"Input": true,
+		"Output": true,
+		"DPkts": true,
+		"DOctets": true,
+		"First": true,
+		"Last": true,
+		"SrcPort": true,
+		"DstPort": true,
+		"TCPFlags": true,
+		"Prot": true,
+		"Tos": true,
+		"SrcAs": true,
+		"DstAs": true,
+		"SrcMask": true,
+		"DstMask": true
+	}
+}
+
 // GetTimestamp Helper function to decode timestamp in NetFlow v5 payload
 func GetTimestamp(sec []byte, nsec []byte) string {
 	//	seconds part
