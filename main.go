@@ -8,27 +8,15 @@ import (
 	"strconv"
 )
 
-type config struct {
-	host      string //	listen address
-	port      string //	listen port
-	chunkSize int    //	the size of accumulator
-	dest      string //	destination directory
-}
-
-var c config
+// C - global object that stores the configuration for entire application
+var C Config
 
 func main() {
 	defer RecoverAnyPanic("main")
 
-	//	Reading commandline arguments
-	c.host = os.Args[1]                    //	listen address
-	c.port = os.Args[2]                    //	listen port
-	chunk, err := strconv.Atoi(os.Args[3]) //	the size of accumulator
-	if err != nil {
-		ExitOnError("main", err)
-	}
-	c.chunkSize = chunk
-	c.dest = os.Args[4] //	destination directory
+	//	Read configuration file which is passed as first argument
+	ReadConfig(&C)
+	fmt.Printf("%+v\n", C)
 
 	//	Creating channel to pass netflow data betwean goroutines
 	channel := make(chan []byte)
@@ -40,7 +28,7 @@ func main() {
 
 	//	Creating UDP socket that will infinitely accept netlow traffic
 	//	Each incomming message is handled in separate goroutine
-	ServerAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%s", c.host, c.port))
+	ServerAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", C.Host, C.Port))
 	if err != nil {
 		ExitOnError("ResolveUDPAddr", err)
 	}
@@ -49,7 +37,7 @@ func main() {
 		ExitOnError("ServerConn", err)
 	}
 	defer ServerConn.Close()
-	fmt.Printf("Socket is listening on %s:%s\n", c.host, c.port)
+	fmt.Printf("Socket is listening on %s:%d\n", C.Host, C.Port)
 	for {
 		//	waiting for single transmission from netflow collector
 		datagram := make([]byte, 4096)
@@ -72,11 +60,11 @@ func accumulate(channel chan []byte) {
 
 	for {
 		//	prepare container for current data chunk
-		chunk := make([][]byte, c.chunkSize)
+		chunk := make([][]byte, C.ChunkSize)
 
 		//	accumulate data
 		i := 0
-		for i < c.chunkSize {
+		for i < C.ChunkSize {
 			if i%100 == 0 {
 				fmt.Printf("Accumulated %d flows in file %d\n", i, fileCount)
 			}
@@ -98,7 +86,7 @@ func save(chunk [][]byte, fileCount int) {
 	defer RecoverAnyPanic("save")
 
 	//	create new file
-	f, err := os.Create(fmt.Sprintf("%s/%s.flow", c.dest, strconv.Itoa(fileCount)))
+	f, err := os.Create(fmt.Sprintf("%s/%s.flow", C.Dest, strconv.Itoa(fileCount)))
 	if err != nil {
 		panic(err)
 	}
@@ -113,6 +101,7 @@ func save(chunk [][]byte, fileCount int) {
 			LogOnError("ServerConn", err)
 			continue
 		}
+		fmt.Println(string(jSon))
 		f.WriteString(fmt.Sprintf("%s,", string(jSon)))
 	}
 	f.WriteString("{}]") //	dirty trick that makes JSON always valid
@@ -123,11 +112,13 @@ func decodeAsNetFlowV5(buf []byte) NetFlowV5 {
 
 	//	create new container for data
 	var flow NetFlowV5
-	//	Decode NetFlow v5 header
+	//	Decode NetFlowV5 header
 	flow.Header = DecodeHeader(buf)
-	//	Decode NetFlow v5 records
-	for c := uint16(0); c < flow.Header.Count; c++ {
-		flow.Records = append(flow.Records, DecodeRecord(buf, c))
+	//	Decode NetFlowV5 records
+	flow.Records = make([]Record, flow.Header.Count)
+	for i := uint16(0); i < flow.Header.Count; i++ {
+		recBuf := buf[i*RecordLength+24 : i*RecordLength+24+RecordLength]
+		flow.Records[i] = DecodeRecord(recBuf)
 	}
 	return flow
 }

@@ -2,11 +2,16 @@ package main
 
 import "strconv"
 
-// NetFlowV5 is representing single NetFlow transmission
+// RecordLength - according to Cisco documentation each record has max 48 bytes of data
+const RecordLength uint16 = 48
+
+// RecordMaxCount - according to Cisco documentation each flow may contain up to 30 records
+const RecordMaxCount uint16 = 30
+
+// NetFlowV5 is representing single NetFlow transmission including header and up to 30 records
 type NetFlowV5 struct {
 	Header  Header   `json:"Header"`
 	Records []Record `json:"Records"`
-	Raw     string   `json:"Raw"`
 }
 
 // Header structure of header NetFlow v5
@@ -48,106 +53,160 @@ type Record struct {
 // DecodeHeader extracts header fields from given slice of bytes
 func DecodeHeader(buf []byte) Header {
 	var h Header
-	h.Version = uint16(buf[0])*256 + uint16(buf[1]) //	NetFlow export format version number
-	h.Count = uint16(buf[2])*256 + uint16(buf[3])   //	Number of flows exported in this packet (1-30)
-	h.SysUptime = int32(buf[4])*256*256*256 +       //	Current time in milliseconds since the export device booted
-		int32(buf[5])*256*256 +
-		int32(buf[6])*256 +
-		int32(buf[7])
-	h.Timestamp = GetTimestamp(
-		buf[8:12],  //	Current count of seconds since 0000 UTC 1970
-		buf[12:16]) //	Residual nanoseconds since 0000 UTC 1970
-	h.FlowSequence = int32(buf[16])*256*256*256 + //	Sequence counter of total flows seen
-		int32(buf[17])*256*256 +
-		int32(buf[18])*256 +
-		int32(buf[19])
-	h.EngineType = uint8(buf[20])                          //	Type of flow-switching engine
-	h.EngineID = uint8(buf[21])                            //	Slot number of the flow-switching engine
-	h.SamplingInterval = uint16(buf[22]) + uint16(buf[24]) //	First two bits hold the sampling mode; remaining 14 bits hold value of sampling interval
+	if C.Configv5Header.Version {
+		//	NetFlow export format version number
+		h.Version = uint16(buf[0])*256 + uint16(buf[1])
+	}
+	if C.Configv5Header.Count {
+		//	Number of flows exported in this packet (1-30)
+		h.Count = uint16(buf[2])*256 + uint16(buf[3])
+	}
+	if C.Configv5Header.SysUptime {
+		//	Current time in milliseconds since the export device booted
+		h.SysUptime = int32(buf[4])*256*256*256 +
+			int32(buf[5])*256*256 +
+			int32(buf[6])*256 +
+			int32(buf[7])
+	}
+	if C.Configv5Header.Timestamp {
+		h.Timestamp = GetTimestamp(
+			buf[8:12],  //	Current count of seconds since 0000 UTC 1970
+			buf[12:16]) //	Residual nanoseconds since 0000 UTC 1970
+	}
+	if C.Configv5Header.FlowSequence {
+		//	Sequence counter of total flows seen
+		h.FlowSequence = int32(buf[16])*256*256*256 +
+			int32(buf[17])*256*256 +
+			int32(buf[18])*256 +
+			int32(buf[19])
+	}
+	if C.Configv5Header.EngineType {
+		//	Type of flow-switching engine
+		h.EngineType = uint8(buf[20])
+	}
+	if C.Configv5Header.EngineID {
+		//	Slot number of the flow-switching engine
+		h.EngineID = uint8(buf[21])
+	}
+	if C.Configv5Header.SamplingInterval {
+		//	First two bits hold the sampling mode; remaining 14 bits hold value of sampling interval
+		h.SamplingInterval = uint16(buf[22]) + uint16(buf[24])
+	}
 	return h
 }
 
 // DecodeRecord extracts single record of number c fields from given slice of bytes
-func DecodeRecord(buf []byte, c uint16) Record {
+func DecodeRecord(buf []byte) Record {
 	var r Record
 
-	recLen := uint16(48)
-	recBuf := buf[c*recLen+24 : c*recLen+24+recLen]
+	if C.ConfigV5Record.SrcAddr {
+		// 00-03	srcaddr	Source IP address
+		r.SrcAddr = strconv.Itoa(int(buf[0])) + "." +
+			strconv.Itoa(int(buf[1])) + "." +
+			strconv.Itoa(int(buf[2])) + "." +
+			strconv.Itoa(int(buf[3]))
+	}
+	if C.ConfigV5Record.DstAddr {
+		// 04-07	dstaddr	Destination IP address
+		r.DstAddr = strconv.Itoa(int(buf[4])) + "." +
+			strconv.Itoa(int(buf[5])) + "." +
+			strconv.Itoa(int(buf[6])) + "." +
+			strconv.Itoa(int(buf[7]))
 
-	// 00-03	srcaddr	Source IP address
-	r.SrcAddr = strconv.Itoa(int(recBuf[0])) + "." +
-		strconv.Itoa(int(recBuf[1])) + "." +
-		strconv.Itoa(int(recBuf[2])) + "." +
-		strconv.Itoa(int(recBuf[3]))
+	}
+	if C.ConfigV5Record.NextHop {
+		// 08-11	nexthop	IP address of next hop router
+		r.NextHop = strconv.Itoa(int(buf[8])) + "." +
+			strconv.Itoa(int(buf[9])) + "." +
+			strconv.Itoa(int(buf[10])) + "." +
+			strconv.Itoa(int(buf[11]))
 
-	// 04-07	dstaddr	Destination IP address
-	r.DstAddr = strconv.Itoa(int(recBuf[4])) + "." +
-		strconv.Itoa(int(recBuf[5])) + "." +
-		strconv.Itoa(int(recBuf[6])) + "." +
-		strconv.Itoa(int(recBuf[7]))
+	}
+	if C.ConfigV5Record.Input {
+		// 12-13	input	SNMP index of input interface
+		r.Input = uint16(buf[12])*256 + uint16(buf[13])
 
-	// 08-11	nexthop	IP address of next hop router
-	r.NextHop = strconv.Itoa(int(recBuf[8])) + "." +
-		strconv.Itoa(int(recBuf[9])) + "." +
-		strconv.Itoa(int(recBuf[10])) + "." +
-		strconv.Itoa(int(recBuf[11]))
+	}
+	if C.ConfigV5Record.Output {
+		// 14-15	output	SNMP index of output interface
+		r.Output = uint16(buf[14])*256 + uint16(buf[15])
 
-	// 12-13	input	SNMP index of input interface
-	r.Input = uint16(recBuf[12])*256 + uint16(recBuf[13])
+	}
+	if C.ConfigV5Record.DPkts {
+		// 16-19	dPkts	Packets in the flow
+		r.DPkts = uint32(buf[16])*256*256*256 +
+			uint32(buf[17])*256*256 +
+			uint32(buf[18])*256 +
+			uint32(buf[19])
 
-	// 14-15	output	SNMP index of output interface
-	r.Output = uint16(recBuf[14])*256 + uint16(recBuf[15])
+	}
+	if C.ConfigV5Record.DOctets {
+		// 20-23	dOctets	Total number of Layer 3 bytes in the packets of the flow
+		r.DOctets = uint32(buf[20])*256*256*256 +
+			uint32(buf[21])*256*256 +
+			uint32(buf[22])*256 +
+			uint32(buf[23])
 
-	// 16-19	dPkts	Packets in the flow
-	r.DPkts = uint32(recBuf[16])*256*256*256 +
-		uint32(recBuf[17])*256*256 +
-		uint32(recBuf[18])*256 +
-		uint32(recBuf[19])
+	}
+	if C.ConfigV5Record.First {
+		// 24-27	first	SysUptime at start of flow
+		r.First = uint32(buf[24])*256*256*256 +
+			uint32(buf[25])*256*256 +
+			uint32(buf[26])*256 +
+			uint32(buf[27])
 
-	// 20-23	dOctets	Total number of Layer 3 bytes in the packets of the flow
-	r.DOctets = uint32(recBuf[20])*256*256*256 +
-		uint32(recBuf[21])*256*256 +
-		uint32(recBuf[22])*256 +
-		uint32(recBuf[23])
+	}
+	if C.ConfigV5Record.Last {
+		// 28-31	last	SysUptime at the time the last packet of the flow was received
+		r.Last = uint32(buf[28])*256*256*256 +
+			uint32(buf[29])*256*256 +
+			uint32(buf[30])*256 +
+			uint32(buf[31])
 
-	// 24-27	first	SysUptime at start of flow
-	r.First = uint32(recBuf[24])*256*256*256 +
-		uint32(recBuf[25])*256*256 +
-		uint32(recBuf[26])*256 +
-		uint32(recBuf[27])
+	}
+	if C.ConfigV5Record.SrcPort {
+		// 32-33	srcport		TCP/UDP source port number or equivalent
+		r.SrcPort = uint16(buf[32])*256 + uint16(buf[33])
 
-	// 28-31	last	SysUptime at the time the last packet of the flow was received
-	r.Last = uint32(recBuf[28])*256*256*256 +
-		uint32(recBuf[29])*256*256 +
-		uint32(recBuf[30])*256 +
-		uint32(recBuf[31])
+	}
+	if C.ConfigV5Record.DstPort {
+		// 34-35	dstport		TCP/UDP destination port number or equivalent
+		r.DstPort = uint16(buf[34])*256 + uint16(buf[35])
 
-	// 32-33	srcport		TCP/UDP source port number or equivalent
-	r.SrcPort = uint16(recBuf[32])*256 + uint16(recBuf[33])
+	}
+	if C.ConfigV5Record.TCPFlags {
+		// 37		tcp_flags	Cumulative OR of TCP flags
+		r.TCPFlags = uint8(buf[37])
 
-	// 34-35	dstport		TCP/UDP destination port number or equivalent
-	r.DstPort = uint16(recBuf[34])*256 + uint16(recBuf[35])
+	}
+	if C.ConfigV5Record.Prot {
+		// 38		prot		IP protocol type (for example, TCP = 6; UDP = 17)
+		r.Prot = uint8(buf[38])
 
-	// 37		tcp_flags	Cumulative OR of TCP flags
-	r.TCPFlags = uint8(recBuf[37])
+	}
+	if C.ConfigV5Record.Tos {
+		// 39		tos			IP type of service (ToS)
+		r.Tos = uint8(buf[39])
 
-	// 38		prot		IP protocol type (for example, TCP = 6; UDP = 17)
-	r.Prot = uint8(recBuf[38])
+	}
+	if C.ConfigV5Record.SrcAs {
+		// 40-41	src_as		Autonomous system number of the source, either origin or peer
+		r.SrcAs = uint16(buf[40])*256 + uint16(buf[41])
 
-	// 39		tos			IP type of service (ToS)
-	r.Tos = uint8(recBuf[39])
+	}
+	if C.ConfigV5Record.DstAs {
+		// 42-43	dst_as		Autonomous system number of the destination, either origin or peer
+		r.DstAs = uint16(buf[42])*256 + uint16(buf[43])
 
-	// 40-41	src_as		Autonomous system number of the source, either origin or peer
-	r.SrcAs = uint16(recBuf[40])*256 + uint16(recBuf[41])
+	}
+	if C.ConfigV5Record.SrcMask {
+		// 44		src_mask	Source address prefix mask bits
+		r.SrcMask = uint8(buf[44])
 
-	// 42-43	dst_as		Autonomous system number of the destination, either origin or peer
-	r.DstAs = uint16(recBuf[42])*256 + uint16(recBuf[43])
-
-	// 44		src_mask	Source address prefix mask bits
-	r.SrcMask = uint8(recBuf[44])
-
-	// 45		dst_mask	Destination address prefix mask bits
-	r.DstMask = uint8(recBuf[45])
-
+	}
+	if C.ConfigV5Record.DstMask {
+		// 45		dst_mask	Destination address prefix mask bits
+		r.DstMask = uint8(buf[45])
+	}
 	return r
 }
