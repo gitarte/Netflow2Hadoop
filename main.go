@@ -4,31 +4,36 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"os"
-	"strconv"
 )
 
-// C - global object that stores the configuration for entire application
-var C Config
+// Config - global object that stores the configuration for entire application
+var Config Configuration
 
 func main() {
 	defer RecoverAnyPanic("main")
 
 	//	Read configuration file which is passed as first argument
-	ReadConfig(&C)
-	fmt.Printf("%+v\n", C)
+	ReadConfig(&Config)
+	fmt.Printf("%+v\n", Config)
 
-	//	Creating channel to pass netflow data betwean goroutines
-	channel := make(chan []byte)
+	//	Creating channel to pass decoded NetFlow data betwean goroutines
+	JSONFlowChanel := make(chan string)
 
-	//	Bringing to life infinite goroutine that accumulates netlows.
-	//	It collects about 128MB of data and afterwards it sends this chunk
-	//	into another goroutine that saves it into file
-	go accumulate(channel)
+	if Config.Output.LocalFS.Enabled || Config.Output.HDFS.Enabled {
+		//	Bringing to life infinite goroutine that accumulates netlows.
+		//	It collects Config.ChunkSize of flows and afterwards it sends this
+		//	into another goroutine that saves it into file
+		go Accumulate(JSONFlowChanel)
+	}
+
+	if Config.Output.Kafka.Enabled {
+		//	Bringing to life infinite goroutine that sends netlows into Kafka bus
+		go SendingToKafka(JSONFlowChanel)
+	}
 
 	//	Creating UDP socket that will infinitely accept netlow traffic
 	//	Each incomming message is handled in separate goroutine
-	ServerAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", C.Host, C.Port))
+	ServerAddr, err := net.ResolveUDPAddr("udp", Config.ListenParams)
 	if err != nil {
 		ExitOnError("ResolveUDPAddr", err)
 	}
@@ -37,7 +42,7 @@ func main() {
 		ExitOnError("ServerConn", err)
 	}
 	defer ServerConn.Close()
-	fmt.Printf("Socket is listening on %s:%d\n", C.Host, C.Port)
+	fmt.Printf("Socket is listening on %s\n", Config.ListenParams)
 	for {
 		//	waiting for single transmission from netflow collector
 		datagram := make([]byte, 4096)
@@ -46,29 +51,39 @@ func main() {
 			LogOnError("ServerConn", err)
 			continue
 		}
-		//	Sending data for for further processing
-		//	which takes place in "accumulate" goroutine
-		channel <- datagram
+
+		go func(datagram []byte) {
+			flow := DecodeAsNetFlowV5(datagram)
+			jSon, err := json.Marshal(&flow)
+			if err != nil {
+				LogOnError("main", err)
+				return
+			}
+			JSONFlowChanel <- string(jSon)
+		}(datagram)
 	}
 }
 
-func accumulate(channel chan []byte) {
-	defer RecoverAnyPanic("accumulate")
+// Accumulate - infinite goroutine that accumulates NetFlows already decoded into JSON string
+// It collects Config.ChunkSize of JSON strings ina slice and afterwards it sends the slice into
+// another goroutine where it is saved into file
+func Accumulate(JSONFlowChanel chan string) {
+	defer RecoverAnyPanic("Accumulate")
 
 	fileCount := 0               // integer counter of output files
 	maxInt := int(^uint(0) >> 1) //	compute maximum value of type int
 
 	for {
 		//	prepare container for current data chunk
-		chunk := make([][]byte, C.ChunkSize)
+		chunk := make([]string, Config.ChunkSize)
 
 		//	accumulate data
 		i := 0
-		for i < C.ChunkSize {
+		for i < Config.ChunkSize {
 			if i%100 == 0 {
 				fmt.Printf("Accumulated %d flows in file %d\n", i, fileCount)
 			}
-			chunk[i] = <-channel // read data from UDP socket
+			chunk[i] = <-JSONFlowChanel // read data from UDP socket
 			i++
 		}
 
@@ -78,47 +93,13 @@ func accumulate(channel chan []byte) {
 		} else {
 			fileCount = 0
 		}
-		go save(chunk, fileCount)
-	}
-}
 
-func save(chunk [][]byte, fileCount int) {
-	defer RecoverAnyPanic("save")
-
-	//	create new file
-	f, err := os.Create(fmt.Sprintf("%s/%s.flow", C.Dest, strconv.Itoa(fileCount)))
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-
-	//	feed file with JSON array of decoded flows
-	f.WriteString("[")
-	for _, datagram := range chunk {
-		flow := decodeAsNetFlowV5(datagram)
-		jSon, err := json.Marshal(&flow)
-		if err != nil {
-			LogOnError("ServerConn", err)
-			continue
+		if Config.Output.LocalFS.Enabled {
+			go SaveChunkToFile(chunk, fileCount)
 		}
-		fmt.Println(string(jSon))
-		f.WriteString(fmt.Sprintf("%s,", string(jSon)))
-	}
-	f.WriteString("{}]") //	dirty trick that makes JSON always valid
-}
 
-func decodeAsNetFlowV5(buf []byte) NetFlowV5 {
-	defer RecoverAnyPanic("decodeAsNetFlowV5")
-
-	//	create new container for data
-	var flow NetFlowV5
-	//	Decode NetFlowV5 header
-	flow.Header = DecodeHeader(buf)
-	//	Decode NetFlowV5 records
-	flow.Records = make([]Record, flow.Header.Count)
-	for i := uint16(0); i < flow.Header.Count; i++ {
-		recBuf := buf[i*RecordLength+24 : i*RecordLength+24+RecordLength]
-		flow.Records[i] = DecodeRecord(recBuf)
+		if Config.Output.HDFS.Enabled {
+			go SaveChunkToHDFS(chunk, fileCount)
+		}
 	}
-	return flow
 }

@@ -18,7 +18,7 @@ type NetFlowV5 struct {
 type Header struct {
 	Version          uint16 `json:"Version"`          // 00-01	version				NetFlow export format version number
 	Count            uint16 `json:"Count"`            // 02-03	count				Number of flows exported in this packet (1-30)
-	SysUptime        int32  `json:"sysUptime"`        // 04-07	sys_uptime			Current time in milliseconds since the export device booted
+	SysUptime        int32  `json:"SysUptime"`        // 04-07	sys_uptime			Current time in milliseconds since the export device booted
 	Timestamp        string `json:"Timestamp"`        // 08-11	unix_secs			Current count of seconds since 0000 UTC 1970 and 12-15	unix_nsecs	Residual nanoseconds since 0000 UTC 1970
 	FlowSequence     int32  `json:"FlowSequence"`     // 16-19	flow_sequence		Sequence counter of total flows seen
 	EngineType       uint8  `json:"EngineType"`       // 20		engine_type			Type of flow-switching engine
@@ -53,42 +53,42 @@ type Record struct {
 // DecodeHeader extracts header fields from given slice of bytes
 func DecodeHeader(buf []byte) Header {
 	var h Header
-	if C.Configv5Header.Version {
+	if Config.Configv5Header.Version {
 		//	NetFlow export format version number
 		h.Version = uint16(buf[0])*256 + uint16(buf[1])
 	}
-	if C.Configv5Header.Count {
+	if Config.Configv5Header.Count {
 		//	Number of flows exported in this packet (1-30)
 		h.Count = uint16(buf[2])*256 + uint16(buf[3])
 	}
-	if C.Configv5Header.SysUptime {
+	if Config.Configv5Header.SysUptime {
 		//	Current time in milliseconds since the export device booted
 		h.SysUptime = int32(buf[4])*256*256*256 +
 			int32(buf[5])*256*256 +
 			int32(buf[6])*256 +
 			int32(buf[7])
 	}
-	if C.Configv5Header.Timestamp {
+	if Config.Configv5Header.Timestamp {
 		h.Timestamp = GetTimestamp(
 			buf[8:12],  //	Current count of seconds since 0000 UTC 1970
 			buf[12:16]) //	Residual nanoseconds since 0000 UTC 1970
 	}
-	if C.Configv5Header.FlowSequence {
+	if Config.Configv5Header.FlowSequence {
 		//	Sequence counter of total flows seen
 		h.FlowSequence = int32(buf[16])*256*256*256 +
 			int32(buf[17])*256*256 +
 			int32(buf[18])*256 +
 			int32(buf[19])
 	}
-	if C.Configv5Header.EngineType {
+	if Config.Configv5Header.EngineType {
 		//	Type of flow-switching engine
 		h.EngineType = uint8(buf[20])
 	}
-	if C.Configv5Header.EngineID {
+	if Config.Configv5Header.EngineID {
 		//	Slot number of the flow-switching engine
 		h.EngineID = uint8(buf[21])
 	}
-	if C.Configv5Header.SamplingInterval {
+	if Config.Configv5Header.SamplingInterval {
 		//	First two bits hold the sampling mode; remaining 14 bits hold value of sampling interval
 		h.SamplingInterval = uint16(buf[22]) + uint16(buf[24])
 	}
@@ -99,14 +99,14 @@ func DecodeHeader(buf []byte) Header {
 func DecodeRecord(buf []byte) Record {
 	var r Record
 
-	if C.ConfigV5Record.SrcAddr {
+	if Config.ConfigV5Record.SrcAddr {
 		// 00-03	srcaddr	Source IP address
 		r.SrcAddr = strconv.Itoa(int(buf[0])) + "." +
 			strconv.Itoa(int(buf[1])) + "." +
 			strconv.Itoa(int(buf[2])) + "." +
 			strconv.Itoa(int(buf[3]))
 	}
-	if C.ConfigV5Record.DstAddr {
+	if Config.ConfigV5Record.DstAddr {
 		// 04-07	dstaddr	Destination IP address
 		r.DstAddr = strconv.Itoa(int(buf[4])) + "." +
 			strconv.Itoa(int(buf[5])) + "." +
@@ -114,7 +114,7 @@ func DecodeRecord(buf []byte) Record {
 			strconv.Itoa(int(buf[7]))
 
 	}
-	if C.ConfigV5Record.NextHop {
+	if Config.ConfigV5Record.NextHop {
 		// 08-11	nexthop	IP address of next hop router
 		r.NextHop = strconv.Itoa(int(buf[8])) + "." +
 			strconv.Itoa(int(buf[9])) + "." +
@@ -122,17 +122,17 @@ func DecodeRecord(buf []byte) Record {
 			strconv.Itoa(int(buf[11]))
 
 	}
-	if C.ConfigV5Record.Input {
+	if Config.ConfigV5Record.Input {
 		// 12-13	input	SNMP index of input interface
 		r.Input = uint16(buf[12])*256 + uint16(buf[13])
 
 	}
-	if C.ConfigV5Record.Output {
+	if Config.ConfigV5Record.Output {
 		// 14-15	output	SNMP index of output interface
 		r.Output = uint16(buf[14])*256 + uint16(buf[15])
 
 	}
-	if C.ConfigV5Record.DPkts {
+	if Config.ConfigV5Record.DPkts {
 		// 16-19	dPkts	Packets in the flow
 		r.DPkts = uint32(buf[16])*256*256*256 +
 			uint32(buf[17])*256*256 +
@@ -140,7 +140,7 @@ func DecodeRecord(buf []byte) Record {
 			uint32(buf[19])
 
 	}
-	if C.ConfigV5Record.DOctets {
+	if Config.ConfigV5Record.DOctets {
 		// 20-23	dOctets	Total number of Layer 3 bytes in the packets of the flow
 		r.DOctets = uint32(buf[20])*256*256*256 +
 			uint32(buf[21])*256*256 +
@@ -148,7 +148,7 @@ func DecodeRecord(buf []byte) Record {
 			uint32(buf[23])
 
 	}
-	if C.ConfigV5Record.First {
+	if Config.ConfigV5Record.First {
 		// 24-27	first	SysUptime at start of flow
 		r.First = uint32(buf[24])*256*256*256 +
 			uint32(buf[25])*256*256 +
@@ -156,7 +156,7 @@ func DecodeRecord(buf []byte) Record {
 			uint32(buf[27])
 
 	}
-	if C.ConfigV5Record.Last {
+	if Config.ConfigV5Record.Last {
 		// 28-31	last	SysUptime at the time the last packet of the flow was received
 		r.Last = uint32(buf[28])*256*256*256 +
 			uint32(buf[29])*256*256 +
@@ -164,49 +164,66 @@ func DecodeRecord(buf []byte) Record {
 			uint32(buf[31])
 
 	}
-	if C.ConfigV5Record.SrcPort {
+	if Config.ConfigV5Record.SrcPort {
 		// 32-33	srcport		TCP/UDP source port number or equivalent
 		r.SrcPort = uint16(buf[32])*256 + uint16(buf[33])
 
 	}
-	if C.ConfigV5Record.DstPort {
+	if Config.ConfigV5Record.DstPort {
 		// 34-35	dstport		TCP/UDP destination port number or equivalent
 		r.DstPort = uint16(buf[34])*256 + uint16(buf[35])
 
 	}
-	if C.ConfigV5Record.TCPFlags {
+	if Config.ConfigV5Record.TCPFlags {
 		// 37		tcp_flags	Cumulative OR of TCP flags
 		r.TCPFlags = uint8(buf[37])
 
 	}
-	if C.ConfigV5Record.Prot {
+	if Config.ConfigV5Record.Prot {
 		// 38		prot		IP protocol type (for example, TCP = 6; UDP = 17)
 		r.Prot = uint8(buf[38])
 
 	}
-	if C.ConfigV5Record.Tos {
+	if Config.ConfigV5Record.Tos {
 		// 39		tos			IP type of service (ToS)
 		r.Tos = uint8(buf[39])
 
 	}
-	if C.ConfigV5Record.SrcAs {
+	if Config.ConfigV5Record.SrcAs {
 		// 40-41	src_as		Autonomous system number of the source, either origin or peer
 		r.SrcAs = uint16(buf[40])*256 + uint16(buf[41])
 
 	}
-	if C.ConfigV5Record.DstAs {
+	if Config.ConfigV5Record.DstAs {
 		// 42-43	dst_as		Autonomous system number of the destination, either origin or peer
 		r.DstAs = uint16(buf[42])*256 + uint16(buf[43])
 
 	}
-	if C.ConfigV5Record.SrcMask {
+	if Config.ConfigV5Record.SrcMask {
 		// 44		src_mask	Source address prefix mask bits
 		r.SrcMask = uint8(buf[44])
 
 	}
-	if C.ConfigV5Record.DstMask {
+	if Config.ConfigV5Record.DstMask {
 		// 45		dst_mask	Destination address prefix mask bits
 		r.DstMask = uint8(buf[45])
 	}
 	return r
+}
+
+// DecodeAsNetFlowV5 -
+func DecodeAsNetFlowV5(buf []byte) NetFlowV5 {
+	defer RecoverAnyPanic("DecodeAsNetFlowV5")
+
+	//	create new container for data
+	var flow NetFlowV5
+	//	Decode NetFlowV5 header
+	flow.Header = DecodeHeader(buf)
+	//	Decode NetFlowV5 records
+	flow.Records = make([]Record, flow.Header.Count)
+	for i := uint16(0); i < flow.Header.Count; i++ {
+		recBuf := buf[i*RecordLength+24 : i*RecordLength+24+RecordLength]
+		flow.Records[i] = DecodeRecord(recBuf)
+	}
+	return flow
 }
