@@ -1,0 +1,51 @@
+{
+    "ListenParams" : "127.0.0.1:9995",
+    "ChunkSize"    : 500,
+    "Output"       : {
+        "LocalFS"        : {
+            "Enabled"    : false,
+            "Path"       : "./"
+        },
+        "HDFS"           : {
+            "Enabled"    : false,
+            "Path"       : "./"
+        },
+        "Kafka"          : {
+            "Enabled"    : true,
+            "BrokerList" : [
+                "192.168.43.20:9092"
+            ],
+            "Topic"      : "test"
+        }
+    },
+	"Configv5Header" : {
+        "Version"          : false,
+        "Count"            : true,
+        "SysUptime"        : true,
+        "Timestamp"        : true,
+        "FlowSequence"     : true,
+        "EngineType"       : false,
+        "EngineID"         : false,
+        "SamplingInterval" : false
+    },
+    "ConfigV5Record" : {
+        "SrcAddr"  : true,
+        "DstAddr"  : true,
+        "NextHop"  : false,
+        "Input"    : false,
+        "Output"   : false,
+        "DPkts"    : false,
+        "DOctets"  : false,
+        "First"    : false,
+        "Last"     : false,
+        "SrcPort"  : true,
+        "DstPort"  : true,
+        "TCPFlags" : true,
+        "Prot"     : true,
+        "Tos"      : false,
+        "SrcAs"    : false,
+        "DstAs"    : false,
+        "SrcMask"  : false,
+        "DstMask"  : false
+    }
+}
