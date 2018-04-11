@@ -10,7 +10,7 @@ import (
 // Configuration - configuration structure
 type Configuration struct {
 	ListenParams   string         `json:"ListenParams"` //	[listen address]:[listen port]
-	ChunkSize      int            `json:"ChunkSize"`    //	the size of accumulator
+	LogFilePath    string         `json:"LogFilePath"`  //	don't provide the name of log file. Just the directory
 	Output         Output         `json:"Output"`       //	where to store or send collected data
 	Configv5Header ConfigV5Header `json:"ConfigV5Header"`
 	ConfigV5Record ConfigV5Record `json:"ConfigV5Record"`
@@ -18,9 +18,10 @@ type Configuration struct {
 
 // Output -
 type Output struct {
-	LocalFS LocalFSConf `json:"LocalFS"` //	[listen address]:[listen port]
-	HDFS    HDFSConf    `json:"HDFS"`
-	Kafka   KafkaConf   `json:"Kafka"`
+	ChunkSize int         `json:"ChunkSize"` //	the size of accumulator
+	LocalFS   LocalFSConf `json:"LocalFS"`   //	[listen address]:[listen port]
+	HDFS      HDFSConf    `json:"HDFS"`
+	Kafka     KafkaConf   `json:"Kafka"`
 }
 
 // LocalFSConf -
@@ -37,9 +38,16 @@ type HDFSConf struct {
 
 // KafkaConf -
 type KafkaConf struct {
-	Enabled    bool     `json:"Enabled"`
-	BrokerList []string `json:"BrokerList"` //	[listen address]:[listen port]
-	Topic      string   `json:"Topic"`
+	Enabled    bool         `json:"Enabled"`
+	BrokerList []string     `json:"BrokerList"` //	[listen address]:[listen port]
+	Topic      string       `json:"Topic"`
+	TLS        KafkaConfTLS `json:"TLS"`
+}
+
+// KafkaConfTLS -
+type KafkaConfTLS struct {
+	Enabled  bool   `json:"Enabled"`
+	CertPath string `json:"CertPath"`
 }
 
 // ConfigV5Header - struct of enable/disable switches for netflow V5 header fields
@@ -54,7 +62,7 @@ type ConfigV5Header struct {
 	SamplingInterval bool `json:"SamplingInterval"`
 }
 
-// ConfigV5Record - struct of enable/disable switches for netflow V5 reckord fields
+// ConfigV5Record - struct of enable/disable switches for netflow V5 record fields
 type ConfigV5Record struct {
 	SrcAddr  bool `json:"SrcAddr"`
 	DstAddr  bool `json:"DstAddr"`

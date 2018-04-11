@@ -32,7 +32,7 @@ func main() {
 	}
 
 	//	Creating UDP socket that will infinitely accept netlow traffic
-	//	Each incomming message is handled in separate goroutine
+	//	Each incoming message is handled in separate goroutine
 	ServerAddr, err := net.ResolveUDPAddr("udp", Config.ListenParams)
 	if err != nil {
 		ExitOnError("ResolveUDPAddr", err)
@@ -75,11 +75,11 @@ func Accumulate(JSONFlowChanel chan string) {
 
 	for {
 		//	prepare container for current data chunk
-		chunk := make([]string, Config.ChunkSize)
+		chunk := make([]string, Config.Output.ChunkSize)
 
 		//	accumulate data
 		i := 0
-		for i < Config.ChunkSize {
+		for i < Config.Output.ChunkSize {
 			if i%100 == 0 {
 				fmt.Printf("Accumulated %d flows in file %d\n", i, fileCount)
 			}

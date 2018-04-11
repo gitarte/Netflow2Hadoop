@@ -30,7 +30,7 @@ func RecoverAnyPanic(where string) {
 	}
 }
 
-// ExitOnError stop execution becouse of fatal error
+// ExitOnError stop execution because of fatal error
 func ExitOnError(where string, err error) {
 	fmt.Fprintf(os.Stderr, "Fatal error in %s: %v\n", where, err)
 	os.Exit(1)

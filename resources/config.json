@@ -15,7 +15,11 @@
             "BrokerList" : [
                 "192.168.43.20:9092"
             ],
-            "Topic"      : "test"
+            "Topic"      : "test",
+            "TLS"        : {
+                "Enabled"  : true,
+                "CertPath" : "./resources/cert.crt"
+            }
         }
     },
 	"Configv5Header" : {
