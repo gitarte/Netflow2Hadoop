@@ -1,8 +1,7 @@
 package main
 
 import (
-	"fmt"
-	"os"
+	"log"
 	"time"
 )
 
@@ -26,17 +25,16 @@ func GetTimestamp(sec []byte, nsec []byte) string {
 // RecoverAnyPanic saves program from unexpected crushes
 func RecoverAnyPanic(where string) {
 	if r := recover(); r != nil {
-		fmt.Printf("Recovered in %s with message %s\n", where, r)
+		log.Printf("Recovered in %s with message %s\n", where, r)
 	}
 }
 
 // ExitOnError stop execution because of fatal error
 func ExitOnError(where string, err error) {
-	fmt.Fprintf(os.Stderr, "Fatal error in %s: %v\n", where, err)
-	os.Exit(1)
+	log.Fatalf("Fatal error in %s: %v\n", where, err)
 }
 
 // LogOnError prints message and error if given
 func LogOnError(where string, err error) {
-	fmt.Printf("Error in %s: %v\n", where, err)
+	log.Printf("Error in %s: %v\n", where, err)
 }

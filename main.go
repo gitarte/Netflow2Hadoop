@@ -3,7 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"net"
+	"os"
 )
 
 // Config - global object that stores the configuration for entire application
@@ -12,9 +15,18 @@ var Config Configuration
 func main() {
 	defer RecoverAnyPanic("main")
 
+	//	configure log file
+	logFile := fmt.Sprintf("%s%s.log", os.Args[2], os.Args[0])
+	f, err := os.OpenFile(logFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+	mw := io.MultiWriter(os.Stdout, f)
+	log.SetOutput(mw)
+
 	//	Read configuration file which is passed as first argument
 	ReadConfig(&Config)
-	fmt.Printf("%+v\n", Config)
 
 	//	Creating channel to pass decoded NetFlow data betwean goroutines
 	JSONFlowChanel := make(chan string)
@@ -42,7 +54,7 @@ func main() {
 		ExitOnError("ServerConn", err)
 	}
 	defer ServerConn.Close()
-	fmt.Printf("Socket is listening on %s\n", Config.ListenParams)
+	log.Printf("Socket is listening on %s\n", Config.ListenParams)
 	for {
 		//	waiting for single transmission from netflow collector
 		datagram := make([]byte, 4096)

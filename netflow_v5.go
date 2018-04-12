@@ -26,7 +26,7 @@ type Header struct {
 	SamplingInterval uint16 `json:"SamplingInterval"` // 22-23	sampling_interval	First two bits hold the sampling mode; remaining 14 bits hold value of sampling interval
 }
 
-// Record structure of single record in NetFlow v5 peyload
+// Record structure of single record in NetFlow v5 payload
 type Record struct {
 	SrcAddr string `json:"SrcAddr"` // 00-03	srcaddr	Source IP address
 	DstAddr string `json:"DstAddr"` // 04-07	dstaddr	Destination IP address

@@ -1,5 +1,7 @@
 # NetflowCollector
-This application opens UDP socket for NetFlow datagrams on given ```ListenParams```. It decodes the content of each flow into JSON shape according to ```ConfigV5Header``` and ```ConfigV5Header``` description. After successful decoding it stores ```Output.ChunkSize``` number of JSONs into file on local file system or sends it for external storage on HDFS. It automatically produces new file if ```Output.ChunkSize``` was exceeded due to the amount of incoming flows. If configuration says that flows has to be sent into Kafka topic, then no accumulation occurs. Instead each decoded flow is published separately.
+This application opens UDP socket for NetFlow datagrams on given ```ListenParams```. It decodes the content of each flow into JSON shape according to ```ConfigV5Header``` and ```ConfigV5Header``` description. After successful decoding it stores ```Output.ChunkSize``` number of JSONs into file on local file system or sends it for external storage on HDFS. It automatically produces new file if ```Output.ChunkSize``` was exceeded due to the amount of incoming flows. 
+
+If configuration says that flows has to be sent into Kafka topic, then each decoded flow is published separately without any accumulation.
 ### Configuration
 This application expects command line argument that shows path to configuration JSON file of following shape:
 ```json
@@ -22,8 +24,10 @@ This application expects command line argument that shows path to configuration 
             ],
             "Topic"      : "test",
             "TLS"        : {
-                "Enabled"  : true,
-                "CertPath" : "./resources/cert.crt"
+                "Enabled"      : true,
+                "CertFilePath" : "./resources/cert.crt",
+                "KeyFilePath"  : "./resources/key.crt",
+                "CAFilePath"   : "./resources/ca.crt"
             }
         }
     },
@@ -62,6 +66,8 @@ This application expects command line argument that shows path to configuration 
 ```Output.ChunkSize``` defines how many flows have to be accumulated in local memory before they will be stored to file system either local or HDFS. The output file in booth cases consists of JSON array of this size. This does not however apply to Kafka message system, where each flow is published separately as soon as it is decoded into JSON.
 
 Boolean values in ```ConfigV5Header``` and ```ConfigV5Record``` say weather decode given NetFlow field or not. If ```false``` then the field will still be present in output but with Go's zero value. Check data types in ```netflow_v5.go```. 
+
+I believe that other options are self explanatory.
 ### Build
 For Linux
 ```bash
@@ -73,11 +79,11 @@ GOOS=windows GOARCH=amd64 go build -o artflow.exe *.go
 ```
 ### Start collector
 ```bash
-artflow [path to configuration json file]
+artflow [path to configuration JSON file] [path to log file]
 ```
 For example
 ```bash
-./artflow ./resources/config.json
+./artflow ./resources/config.json ./
 ```
 ### Generate your dummy netflow stream
 Use ```fprobe``` like this 

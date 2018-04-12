@@ -17,8 +17,10 @@
             ],
             "Topic"      : "test",
             "TLS"        : {
-                "Enabled"  : true,
-                "CertPath" : "./resources/cert.crt"
+                "Enabled"      : false,
+                "CertFilePath" : "./resources/cert.crt",
+                "KeyFilePath"  : "./resources/key.crt",
+                "CAFilePath"   : "./resources/ca.crt"
             }
         }
     },

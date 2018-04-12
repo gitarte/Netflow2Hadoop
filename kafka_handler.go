@@ -1,7 +1,10 @@
 package main
 
 import (
-	"fmt"
+	"crypto/tls"
+	"crypto/x509"
+	"io/ioutil"
+	"log"
 
 	"github.com/Shopify/sarama"
 )
@@ -14,6 +17,12 @@ func SendingToKafka(jsonFlowChanel chan string) {
 	saramaConfig.Producer.RequiredAcks = sarama.WaitForAll
 	saramaConfig.Producer.Retry.Max = 5
 	saramaConfig.Producer.Return.Successes = true
+
+	if Config.Output.Kafka.TLS.Enabled {
+		saramaConfig.Net.TLS.Config = createTLSConfiguration()
+		saramaConfig.Net.TLS.Enable = true
+	}
+
 	producer, err := sarama.NewSyncProducer(Config.Output.Kafka.BrokerList, saramaConfig)
 	if err != nil {
 		ExitOnError("SendingToKafka", err)
@@ -31,8 +40,33 @@ func SendingToKafka(jsonFlowChanel chan string) {
 		}
 		partition, offset, err := producer.SendMessage(msg)
 		if err != nil {
-			panic(err)
+			LogOnError("SendingToKafka", err)
 		}
-		fmt.Printf("Message is stored in topic(%s)/partition(%d)/offset(%d)\n", Config.Output.Kafka.Topic, partition, offset)
+		log.Printf("Message is stored in topic(%s)/partition(%d)/offset(%d)\n", Config.Output.Kafka.Topic, partition, offset)
 	}
+}
+
+func createTLSConfiguration() (t *tls.Config) {
+	cert, err := tls.LoadX509KeyPair(
+		Config.Output.Kafka.TLS.CertFilePath,
+		Config.Output.Kafka.TLS.KeyFilePath)
+
+	if err != nil {
+		ExitOnError("createTLSConfiguration", err)
+	}
+
+	caCert, err := ioutil.ReadFile(Config.Output.Kafka.TLS.CAFilePath)
+	if err != nil {
+		ExitOnError("createTLSConfiguration", err)
+	}
+
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+
+	t = &tls.Config{
+		Certificates:       []tls.Certificate{cert},
+		RootCAs:            caCertPool,
+		InsecureSkipVerify: false,
+	}
+	return t
 }

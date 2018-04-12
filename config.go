@@ -2,15 +2,14 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 )
 
 // Configuration - configuration structure
 type Configuration struct {
 	ListenParams   string         `json:"ListenParams"` //	[listen address]:[listen port]
-	LogFilePath    string         `json:"LogFilePath"`  //	don't provide the name of log file. Just the directory
 	Output         Output         `json:"Output"`       //	where to store or send collected data
 	Configv5Header ConfigV5Header `json:"ConfigV5Header"`
 	ConfigV5Record ConfigV5Record `json:"ConfigV5Record"`
@@ -46,8 +45,10 @@ type KafkaConf struct {
 
 // KafkaConfTLS -
 type KafkaConfTLS struct {
-	Enabled  bool   `json:"Enabled"`
-	CertPath string `json:"CertPath"`
+	Enabled      bool   `json:"Enabled"`
+	CertFilePath string `json:"CertFilePath"`
+	KeyFilePath  string `json:"KeyFilePath"`
+	CAFilePath   string `json:"CAFilePath"`
 }
 
 // ConfigV5Header - struct of enable/disable switches for netflow V5 header fields
@@ -88,8 +89,7 @@ type ConfigV5Record struct {
 func ReadConfig(c *Configuration) {
 	file, e := ioutil.ReadFile(os.Args[1])
 	if e != nil {
-		fmt.Printf("cannot read configuration file: %v\n", e)
-		os.Exit(1)
+		log.Fatalf("cannot read configuration file: %v\n", e)
 	}
 	json.Unmarshal(file, c)
 }

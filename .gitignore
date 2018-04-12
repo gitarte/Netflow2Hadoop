@@ -3,6 +3,7 @@
 *.dll
 *.so
 *.dylib
+artflow
 
 # Test binary, build with `go test -c`
 *.test
@@ -15,3 +16,6 @@
 
 # exclude Vsisual studio code
 .vscode/
+
+# exlude log files
+*.log

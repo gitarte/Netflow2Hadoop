@@ -5,5 +5,6 @@ package main
 func SaveChunkToHDFS(chunk []string, fileCount int) {
 	defer RecoverAnyPanic("SaveChunkToHDFS")
 
-	// TODO
+	// This was fucked up
+	// TODO: use https://github.com/colinmarc/hdfs
 }
