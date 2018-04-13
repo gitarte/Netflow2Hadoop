@@ -108,3 +108,37 @@ bin/kafka-topics.sh --list --zookeeper 192.168.43.20:2181
 bin/kafka-console-producer.sh --broker-list 192.168.43.20:9092 --topic test
 bin/kafka-console-consumer.sh --bootstrap-server 192.168.43.20:9092 --topic test --from-beginning
 ```
+### Quick start for Kafka with TLS
+#### On Kafka machine
+Create keystore:
+```bash
+keytool -keystore kafka.server.keystore.jks -alias localhost -genkey
+```
+Create your own Certificate Authority (CA):
+```bash
+openssl req -new -x509 -keyout ca-key -out ca-cert -days 3650
+```
+Add the generated CA to truststore:
+```bash
+keytool -keystore kafka.server.truststore.jks -alias CARoot -import -file ca-cert
+```
+Export the certificate from the keystore:
+```bash
+keytool -keystore kafka.server.keystore.jks -alias localhost -certreq -file cert-file
+```
+Sign it with the CA:
+```bash
+openssl x509 -req -CA ca-cert -CAkey ca-key -in cert-file -out cert-signed -days 3650 -CAcreateserial
+```
+Import both the certificate of the CA and the signed certificate into the broker keystore:
+```bash
+keytool -keystore kafka.server.keystore.jks -alias CARoot    -import -file ca-cert
+keytool -keystore kafka.server.keystore.jks -alias localhost -import -file cert-signed
+```
+
+
+
+
+
+
+##### On NetflowCollector machine
