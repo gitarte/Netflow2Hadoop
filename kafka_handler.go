@@ -42,7 +42,11 @@ func SendingToKafka(jsonFlowChanel chan string) {
 		if err != nil {
 			LogOnError("SendingToKafka", err)
 		}
-		log.Printf("Message is stored in topic(%s)/partition(%d)/offset(%d)\n", Config.Output.Kafka.Topic, partition, offset)
+		if offset == 0 {
+			log.Printf("First flow stored in topic(%s)/partition(%d)/offset(%d)\n", Config.Output.Kafka.Topic, partition, offset)
+		} else if offset%100 == 0 {
+			log.Printf("Another 100 flows stored in topic(%s)/partition(%d)/offset(%d)\n", Config.Output.Kafka.Topic, partition, offset)
+		}
 	}
 }
 
