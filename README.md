@@ -109,36 +109,43 @@ bin/kafka-console-producer.sh --broker-list 192.168.43.20:9092 --topic test
 bin/kafka-console-consumer.sh --bootstrap-server 192.168.43.20:9092 --topic test --from-beginning
 ```
 ### Quick start for Kafka with TLS
+#### Create your own Certification Authority
+```bash
+openssl req -x509 -newkey rsa:4096 -days 3650 -keyout ca-key.pem -out ca-crt.pem
+```
 #### On Kafka machine
 Create keystore:
 ```bash
 keytool -keystore kafka.server.keystore.jks -alias localhost -genkey
 ```
-Create your own Certificate Authority (CA):
+Add CA certificate to truststore:
 ```bash
-openssl req -new -x509 -keyout ca-key -out ca-cert -days 3650
+keytool -keystore kafka.server.truststore.jks -alias CARoot -import -file ca-crt.pem
 ```
-Add the generated CA to truststore:
+Generate certificate signing request from the keystore:
 ```bash
-keytool -keystore kafka.server.truststore.jks -alias CARoot -import -file ca-cert
-```
-Export the certificate from the keystore:
-```bash
-keytool -keystore kafka.server.keystore.jks -alias localhost -certreq -file cert-file
+keytool -keystore kafka.server.keystore.jks -alias localhost -certreq -file kafka.server.csr
 ```
 Sign it with the CA:
 ```bash
-openssl x509 -req -CA ca-cert -CAkey ca-key -in cert-file -out cert-signed -days 3650 -CAcreateserial
+openssl x509 -req -CAcreateserial -CAkey ca-key.pem -CA ca-crt.pem -days 3650 -in kafka.server.csr -out kafka.server.crt
 ```
 Import both the certificate of the CA and the signed certificate into the broker keystore:
 ```bash
-keytool -keystore kafka.server.keystore.jks -alias CARoot    -import -file ca-cert
-keytool -keystore kafka.server.keystore.jks -alias localhost -import -file cert-signed
+keytool -keystore kafka.server.keystore.jks -alias CARoot    -import -file ca-crt.pem
+keytool -keystore kafka.server.keystore.jks -alias localhost -import -file kafka.server.crt
 ```
-
-
-
-
-
-
-##### On NetflowCollector machine
+#### On NetflowCollector machine
+NetflowCollector does not use Java whatsoever, so we don't deal with keystore and truststore.
+Generate private key:
+```bash
+openssl req -x509 -newkey rsa:4096 -keyout NetflowCollector.key -noout -days 3650
+```
+Generate certificate signing request file
+```
+openssl req -new -key NetflowCollector.key -out NetflowCollector.csr
+```
+Send ```NetflowCollector.csr``` to your CA and sign it:
+```bash
+openssl x509 -req -CAcreateserial -CAkey ca-key.pem -CA ca-crt.pem -days 3650 -in NetflowCollector.csr -out NetflowCollector.crt
+```
